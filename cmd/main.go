@@ -7,19 +7,11 @@ import (
 	"go.uber.org/zap"
 	"time"
 	"vk-worker-pool/internal/config"
-	inter "vk-worker-pool/internal/interfaces"
 	"vk-worker-pool/internal/logger"
 	"vk-worker-pool/internal/task"
 	"vk-worker-pool/internal/worker"
 	"vk-worker-pool/internal/workerpool"
 )
-
-type Pool interface {
-	Submit(task inter.Task) error
-	AddWorkers(numWorkers int)
-	RemoveWorkers(numWorkers int)
-	Shutdown()
-}
 
 func main() {
 	configPath := flag.String("config", "config/config.yaml", "путь до конфиг-файла")
