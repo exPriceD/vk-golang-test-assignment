@@ -5,6 +5,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"os"
 	"vk-worker-pool/internal/constants"
+	"vk-worker-pool/internal/errors"
 )
 
 // Config содержит конфиг для WorkerPool.
@@ -46,23 +47,23 @@ func DefaultConfig() Config {
 // Validate проверяет корректность конфига.
 func (c Config) Validate() error {
 	if c.Worker.InitialWorkers < 0 {
-		return fmt.Errorf("InitialWorkers не может быть отрицательным: %d", c.Worker.InitialWorkers)
+		return errors.WrapNegativeInitialWorkers(c.Worker.InitialWorkers)
 	}
 
 	if c.Worker.TaskBufferSize < 0 {
-		return fmt.Errorf("TaskBufferSize не может быть отрицательным: %d", c.Worker.TaskBufferSize)
+		return errors.WrapNegativeTaskBufferSize(c.Worker.TaskBufferSize)
 	}
 
 	switch c.Logger.Level {
 	case constants.LogLevelDebug, constants.LogLevelInfo, constants.LogLevelWarn, constants.LogLevelError:
 	default:
-		return fmt.Errorf("неподдерживаемый уровень логирования: %s", c.Logger.Level)
+		return errors.WrapInvalidLogLevel(c.Logger.Level)
 	}
 
 	switch c.Logger.Format {
 	case constants.LogFormatJSON, constants.LogFormatText:
 	default:
-		return fmt.Errorf("неподдерживаемый формат логирования: %s", c.Logger.Format)
+		return errors.WrapInvalidLogFormat(c.Logger.Format)
 	}
 
 	return nil
@@ -80,7 +81,7 @@ func LoadConfig(filePath string) (Config, error) {
 		if os.IsNotExist(err) || len(data) == 0 {
 			return cfg, nil
 		}
-		return Config{}, fmt.Errorf("ошибка чтения файла конфигурации: %w", err)
+		return Config{}, fmt.Errorf("%w: %v", errors.ErrReadConfigFile, err)
 	}
 
 	if len(data) == 0 {
@@ -88,10 +89,10 @@ func LoadConfig(filePath string) (Config, error) {
 	}
 
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return Config{}, fmt.Errorf("ошибка парсинга YAML: %w", err)
+		return Config{}, fmt.Errorf("%w: %v", errors.ErrParseYAML, err)
 	}
 	if err := cfg.Validate(); err != nil {
-		return Config{}, fmt.Errorf("невалидная конфигурация: %w", err)
+		return Config{}, fmt.Errorf("%w: %v", errors.ErrInvalidConfig, err)
 	}
 
 	return cfg, nil

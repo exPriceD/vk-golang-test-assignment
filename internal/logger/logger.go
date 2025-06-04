@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"vk-worker-pool/internal/config"
 	"vk-worker-pool/internal/constants"
+	"vk-worker-pool/internal/errors"
 )
 
 // NewLogger создает новый логгер на основе конфига.
@@ -29,7 +30,7 @@ func NewLogger(loggerCfg config.LoggerConfig) (*zap.Logger, error) {
 
 	logger, err := zapCfg.Build()
 	if err != nil {
-		return nil, fmt.Errorf("ошибка инициализации логгера: %w", err)
+		return nil, fmt.Errorf("%w: %v", errors.ErrLoggerInit, err)
 	}
 
 	return logger, nil
@@ -46,6 +47,6 @@ func getLogLevel(level string) (zapcore.Level, error) {
 	case constants.LogLevelError:
 		return zapcore.ErrorLevel, nil
 	default:
-		return zapcore.InfoLevel, fmt.Errorf("неподдерживаемый уровень логирования: %s", level)
+		return zapcore.InfoLevel, errors.WrapInvalidLogLevel(level)
 	}
 }
