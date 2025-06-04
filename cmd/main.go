@@ -9,12 +9,15 @@ import (
 )
 
 func main() {
-	configPath := flag.String("config", "config/config.yaml", "path to configuration file")
+	configPath := flag.String("config", "config/config.yaml", "путь до конфиг-файла")
+	flag.Parse()
+
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
 		fmt.Printf("Ошибка загрузки конфигурации: %v\n", err)
 		return
 	}
+	fmt.Println(cfg)
 
 	log, err := logger.NewLogger(cfg.Logger)
 	if err != nil {
@@ -24,4 +27,5 @@ func main() {
 	defer func(log *zap.Logger) {
 		_ = log.Sync()
 	}(log)
+	log.Info("Test INFO msg")
 }
