@@ -9,7 +9,7 @@ import (
 type DefaultWorker struct{}
 
 // Run выполняет цикл обработки задач
-func (w *DefaultWorker) Run(ctx context.Context, tasks <-chan interfaces.Task, id int32, log interfaces.Logger) {
+func (w DefaultWorker) Run(ctx context.Context, tasks <-chan interfaces.Task, id int32, log interfaces.Logger) {
 	log.Debug("Воркер запущен", zap.Int32("worker_id", id))
 	for {
 		select {
