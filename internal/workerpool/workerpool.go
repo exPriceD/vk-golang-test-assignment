@@ -2,15 +2,16 @@ package workerpool
 
 import (
 	"context"
-	"fmt"
 	"go.uber.org/zap"
 	"sync"
 	"sync/atomic"
 	"vk-worker-pool/internal/errors"
 )
 
-type Task struct {
-	Data string
+// Task определяет контракт для задач, которые может обрабатывать WorkerPool.
+// Реализовано для повышения гибкости (например, если мы захотим изменить таску на JSON и многое другое)
+type Task interface {
+	Process() error // Выполняет задачу и возвращает ошибку, если она произошла
 }
 
 type WorkerPool struct {
@@ -63,7 +64,7 @@ func (wp *WorkerPool) RemoveWorkers(numWorkers int) {
 	}
 	for i := 0; i < numWorkers; i++ {
 		if atomic.LoadInt32(&wp.workerCount) > 0 {
-			wp.tasks <- Task{Data: "STOP"}
+			wp.tasks <- nil
 		}
 	}
 	wp.log.Info("Остановлены воркеры", zap.Int("num_workers", numWorkers))
@@ -75,7 +76,7 @@ func (wp *WorkerPool) Submit(task Task) error {
 	select {
 	case <-wp.tasks:
 		wp.tasks <- task
-		wp.log.Debug("Задача отправлена в пул", zap.String("task_data", task.Data))
+		wp.log.Debug("Задача отправлена в пул")
 		return nil
 	case <-wp.ctx.Done():
 		wp.log.Error("Не удалось отправить задачу: пул остановлен")
@@ -106,15 +107,15 @@ func (wp *WorkerPool) worker(id int32) {
 				wp.log.Debug("Канал задач закрыт, воркер остановлен", zap.Int32("worker_id", id))
 				return
 			}
-			if task.Data == "STOP" {
+			if task == nil {
 				atomic.AddInt32(&wp.workerCount, -1)
 				wp.log.Debug("Воркер остановлен по сигнальной задаче", zap.Int32("worker_id", id))
 				return
 			}
-			wp.log.Info("Воркер обрабатывает задачу",
-				zap.Int32("worker_id", id),
-				zap.String("task_data", task.Data))
-			fmt.Printf("Воркер %d обрабатывает задачу: %s\n", id, task.Data)
+			wp.log.Info("Воркер обрабатывает задачу", zap.Int32("worker_id", id))
+			if err := task.Process(); err != nil {
+				wp.log.Error("Ошибка обработки задачи", zap.Error(err))
+			}
 		}
 	}
 }
