@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"go.uber.org/zap"
+	"vk-worker-pool/internal/interfaces"
 )
 
 type Task interface {
@@ -12,7 +13,7 @@ type Task interface {
 type DefaultWorker struct{}
 
 // Run выполняет цикл обработки задач
-func (w *DefaultWorker) Run(ctx context.Context, tasks <-chan Task, id int32, log *zap.Logger) {
+func (w *DefaultWorker) Run(ctx context.Context, tasks <-chan Task, id int32, log interfaces.Logger) {
 	log.Debug("Воркер запущен", zap.Int32("worker_id", id))
 	for {
 		select {

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"vk-worker-pool/internal/errors"
+	"vk-worker-pool/internal/interfaces"
 )
 
 // Task определяет контракт для задач, которые может обрабатывать WorkerPool.
@@ -16,7 +17,7 @@ type Task interface {
 
 // Worker определяет контракт для воркера.
 type Worker interface {
-	Run(ctx context.Context, tasks <-chan Task, id int32, log *zap.Logger)
+	Run(ctx context.Context, tasks <-chan Task, id int32, log interfaces.Logger)
 }
 
 type WorkerPool struct {
@@ -26,10 +27,10 @@ type WorkerPool struct {
 	worker      Worker
 	ctx         context.Context
 	cancel      context.CancelFunc
-	log         *zap.Logger
+	log         interfaces.Logger
 }
 
-func NewWorkerPool(initialWorkers int, taskBufferSize int, worker Worker, log *zap.Logger) (*WorkerPool, error) {
+func NewWorkerPool(initialWorkers int, taskBufferSize int, worker Worker, log interfaces.Logger) (*WorkerPool, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	wp := &WorkerPool{
 		tasks:  make(chan Task, taskBufferSize),
