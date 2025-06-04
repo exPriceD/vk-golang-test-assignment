@@ -9,21 +9,15 @@ import (
 	"vk-worker-pool/internal/interfaces"
 )
 
-// Task определяет контракт для задач, которые может обрабатывать WorkerPool.
-// Реализовано для повышения гибкости (например, если мы захотим изменить таску на JSON и многое другое).
-type Task interface {
-	Process() error // Выполняет задачу и возвращает ошибку, если она произошла
-}
-
 // Worker определяет контракт для воркера.
 type Worker interface {
-	Run(ctx context.Context, tasks <-chan Task, id int32, log interfaces.Logger)
+	Run(ctx context.Context, tasks <-chan interfaces.Task, id int32, log interfaces.Logger)
 }
 
 type WorkerPool struct {
-	tasks       chan Task      // Канал для задач
-	workers     sync.WaitGroup // WaitGroup для отслеживания активных воркеров
-	workerCount int32          // Счетчик активных воркеров
+	tasks       chan interfaces.Task // Канал для задач
+	workers     sync.WaitGroup       // WaitGroup для отслеживания активных воркеров
+	workerCount int32                // Счетчик активных воркеров
 	worker      Worker
 	ctx         context.Context
 	cancel      context.CancelFunc
@@ -33,7 +27,7 @@ type WorkerPool struct {
 func NewWorkerPool(initialWorkers int, taskBufferSize int, worker Worker, log interfaces.Logger) (*WorkerPool, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	wp := &WorkerPool{
-		tasks:  make(chan Task, taskBufferSize),
+		tasks:  make(chan interfaces.Task, taskBufferSize),
 		worker: worker,
 		ctx:    ctx,
 		cancel: cancel,
@@ -85,7 +79,7 @@ func (wp *WorkerPool) RemoveWorkers(numWorkers int) {
 }
 
 // Submit добавляет новую задачу в пул.
-func (wp *WorkerPool) Submit(task Task) error {
+func (wp *WorkerPool) Submit(task interfaces.Task) error {
 	select {
 	case <-wp.tasks:
 		wp.tasks <- task
