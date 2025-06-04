@@ -1,0 +1,9 @@
+worker:
+  initial_workers: 5
+  task_buffer_size: 10
+
+logger:
+  logging_level: "INFO"
+  format: "text"
+  disable_stacktrace: false
+  disable_caller: false
