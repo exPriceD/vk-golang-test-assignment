@@ -81,8 +81,7 @@ func (wp *WorkerPool) RemoveWorkers(numWorkers int) {
 // Submit добавляет новую задачу в пул.
 func (wp *WorkerPool) Submit(task interfaces.Task) error {
 	select {
-	case <-wp.tasks:
-		wp.tasks <- task
+	case wp.tasks <- task:
 		wp.log.Debug("Задача отправлена в пул")
 		return nil
 	case <-wp.ctx.Done():
