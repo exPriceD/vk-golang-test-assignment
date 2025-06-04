@@ -9,24 +9,31 @@ import (
 )
 
 // Task определяет контракт для задач, которые может обрабатывать WorkerPool.
-// Реализовано для повышения гибкости (например, если мы захотим изменить таску на JSON и многое другое)
+// Реализовано для повышения гибкости (например, если мы захотим изменить таску на JSON и многое другое).
 type Task interface {
 	Process() error // Выполняет задачу и возвращает ошибку, если она произошла
+}
+
+// Worker определяет контракт для воркера.
+type Worker interface {
+	Run(ctx context.Context, tasks <-chan Task, id int32, log *zap.Logger)
 }
 
 type WorkerPool struct {
 	tasks       chan Task      // Канал для задач
 	workers     sync.WaitGroup // WaitGroup для отслеживания активных воркеров
 	workerCount int32          // Счетчик активных воркеров
+	worker      Worker
 	ctx         context.Context
 	cancel      context.CancelFunc
 	log         *zap.Logger
 }
 
-func NewWorkerPool(initialWorkers int, taskBufferSize int, log *zap.Logger) (*WorkerPool, error) {
+func NewWorkerPool(initialWorkers int, taskBufferSize int, worker Worker, log *zap.Logger) (*WorkerPool, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	wp := &WorkerPool{
 		tasks:  make(chan Task, taskBufferSize),
+		worker: worker,
 		ctx:    ctx,
 		cancel: cancel,
 		log:    log,
@@ -52,8 +59,12 @@ func (wp *WorkerPool) AddWorkers(numWorkers int) {
 		wp.workers.Add(1)
 		// Можно использовать sync.Mutex, но это менее эффективно, так как мьютексы требуют блокировки
 		workerID := atomic.AddInt32(&wp.workerCount, 1)
-		go wp.worker(workerID)
+		go func(id int32) {
+			wp.worker.Run(wp.ctx, wp.tasks, workerID, wp.log)
+			wp.workers.Done()
+		}(workerID)
 	}
+	wp.log.Info("Добавлены новые воркеры", zap.Int("num_workers", numWorkers))
 }
 
 // RemoveWorkers останавливает указанное количество воркеров.
@@ -65,6 +76,7 @@ func (wp *WorkerPool) RemoveWorkers(numWorkers int) {
 	for i := 0; i < numWorkers; i++ {
 		if atomic.LoadInt32(&wp.workerCount) > 0 {
 			wp.tasks <- nil
+			atomic.AddInt32(&wp.workerCount, -1)
 		}
 	}
 	wp.log.Info("Остановлены воркеры", zap.Int("num_workers", numWorkers))
@@ -91,31 +103,4 @@ func (wp *WorkerPool) Shutdown() {
 	wp.workers.Wait()
 	close(wp.tasks)
 	wp.log.Info("Пул воркеров успешно остановлен")
-}
-
-// worker горутина, которая обрабатывает задачи.
-func (wp *WorkerPool) worker(id int32) {
-	defer wp.workers.Done()
-	wp.log.Debug("Воркер запущен", zap.Int32("worker_id", id))
-	for {
-		select {
-		case <-wp.ctx.Done():
-			wp.log.Debug("Воркер остановлен по контексту", zap.Int32("worker_id", id))
-			return
-		case task, ok := <-wp.tasks:
-			if !ok {
-				wp.log.Debug("Канал задач закрыт, воркер остановлен", zap.Int32("worker_id", id))
-				return
-			}
-			if task == nil {
-				atomic.AddInt32(&wp.workerCount, -1)
-				wp.log.Debug("Воркер остановлен по сигнальной задаче", zap.Int32("worker_id", id))
-				return
-			}
-			wp.log.Info("Воркер обрабатывает задачу", zap.Int32("worker_id", id))
-			if err := task.Process(); err != nil {
-				wp.log.Error("Ошибка обработки задачи", zap.Error(err))
-			}
-		}
-	}
 }
