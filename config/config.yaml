@@ -1,9 +1,11 @@
 worker:
   initial_workers: 5
   task_buffer_size: 10
+  task_timeout: 5s
+  pool_timeout: -5s
 
 logger:
   logging_level: "INFO"
   format: "text"
-  disable_stacktrace: false
-  disable_caller: false
+  disable_stacktrace: true
+  disable_caller: true

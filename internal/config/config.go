@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"os"
+	"time"
 	"vk-worker-pool/internal/constants"
 	"vk-worker-pool/internal/errors"
 )
@@ -16,8 +17,10 @@ type Config struct {
 
 // WorkerConfig содержит конфиг для Worker.
 type WorkerConfig struct {
-	InitialWorkers int `yaml:"initial_workers"`
-	TaskBufferSize int `yaml:"task_buffer_size"`
+	InitialWorkers int           `yaml:"initial_workers"`
+	TaskBufferSize int           `yaml:"task_buffer_size"`
+	TaskTimeout    time.Duration `yaml:"task_timeout"`
+	PoolTimeout    time.Duration `yaml:"pool_timeout"`
 }
 
 // LoggerConfig содержит конфиг для Logger.
@@ -34,6 +37,8 @@ func DefaultConfig() Config {
 		Worker: WorkerConfig{
 			InitialWorkers: 3,
 			TaskBufferSize: 10,
+			TaskTimeout:    1 * time.Second,
+			PoolTimeout:    1 * time.Second,
 		},
 		Logger: LoggerConfig{
 			Level:             constants.LogLevelInfo,
@@ -49,11 +54,15 @@ func (c Config) Validate() error {
 	if c.Worker.InitialWorkers < 0 {
 		return errors.WrapNegativeInitialWorkers(c.Worker.InitialWorkers)
 	}
-
 	if c.Worker.TaskBufferSize < 0 {
 		return errors.WrapNegativeTaskBufferSize(c.Worker.TaskBufferSize)
 	}
-
+	if c.Worker.TaskTimeout < 0 {
+		return errors.WrapNegativeTaskTimeout(c.Worker.TaskTimeout)
+	}
+	if c.Worker.PoolTimeout < 0 {
+		return errors.WrapNegativePoolTimeout(c.Worker.PoolTimeout)
+	}
 	switch c.Logger.Level {
 	case constants.LogLevelDebug, constants.LogLevelInfo, constants.LogLevelWarn, constants.LogLevelError:
 	default:

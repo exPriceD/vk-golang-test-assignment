@@ -3,6 +3,7 @@ package errors
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 // Ошибки для конфигурации
@@ -14,6 +15,8 @@ var (
 	ErrReadConfigFile         = errors.New("ошибка чтения файла конфигурации")
 	ErrParseYAML              = errors.New("ошибка парсинга YAML")
 	ErrInvalidConfig          = errors.New("невалидная конфигурация")
+	ErrNegativeTaskTimeout    = errors.New("TaskTimeout не может быть отрицательным")
+	ErrNegativePoolTimeout    = errors.New("PoolTimeout не может быть отрицательным")
 )
 
 // Ошибки для логгера
@@ -25,6 +28,7 @@ var (
 var (
 	ErrPoolStopped = errors.New("пул воркеров остановлен")
 	ErrNilTask     = errors.New("задача не может быть nil")
+	ErrTimeout     = errors.New("превышен таймаут")
 )
 
 // WrapInvalidLogLevel оборачивает ErrInvalidLogLevel с указанием уровня.
@@ -45,4 +49,14 @@ func WrapNegativeInitialWorkers(workers int) error {
 // WrapNegativeTaskBufferSize оборачивает ErrNegativeTaskBufferSize с указанием значения.
 func WrapNegativeTaskBufferSize(size int) error {
 	return fmt.Errorf("%w: %d", ErrNegativeTaskBufferSize, size)
+}
+
+// WrapNegativeTaskTimeout оборачивает ErrNegativeTaskTimeout с указанием значения.
+func WrapNegativeTaskTimeout(timeout time.Duration) error {
+	return fmt.Errorf("%w: %v", ErrNegativeTaskTimeout, timeout)
+}
+
+// WrapNegativePoolTimeout оборачивает ErrNegativePoolTimeout с указанием значения.
+func WrapNegativePoolTimeout(timeout time.Duration) error {
+	return fmt.Errorf("%w: %v", ErrNegativePoolTimeout, timeout)
 }

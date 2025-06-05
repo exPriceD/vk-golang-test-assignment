@@ -5,6 +5,7 @@ import (
 	"go.uber.org/zap"
 	"sync"
 	"sync/atomic"
+	"time"
 	"vk-worker-pool/internal/errors"
 	"vk-worker-pool/internal/interfaces"
 )
@@ -23,16 +24,18 @@ type WorkerPool struct {
 	ctx         context.Context
 	cancel      context.CancelFunc
 	log         interfaces.Logger
+	poolTimeout time.Duration
 }
 
-func NewWorkerPool(initialWorkers int, taskBufferSize int, worker Worker, log interfaces.Logger) (*WorkerPool, error) {
+func NewWorkerPool(initialWorkers int, taskBufferSize int, worker Worker, log interfaces.Logger, poolTimeout time.Duration) (*WorkerPool, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	wp := &WorkerPool{
-		tasks:  make(chan interfaces.Task, taskBufferSize),
-		worker: worker,
-		ctx:    ctx,
-		cancel: cancel,
-		log:    log,
+		tasks:       make(chan interfaces.Task, taskBufferSize),
+		worker:      worker,
+		ctx:         ctx,
+		cancel:      cancel,
+		log:         log,
+		poolTimeout: poolTimeout,
 	}
 
 	wp.log.Info("Создан новый пул воркеров",
@@ -79,8 +82,16 @@ func (wp *WorkerPool) RemoveWorkers(numWorkers int) {
 	}
 	for i := 0; i < numWorkers; i++ {
 		if atomic.LoadInt32(&wp.workerCount) > 0 {
-			wp.tasks <- nil
-			atomic.AddInt32(&wp.workerCount, -1)
+			select {
+			case wp.tasks <- nil:
+				atomic.AddInt32(&wp.workerCount, -1)
+			case <-wp.ctx.Done():
+				wp.log.Warn("Пул остановлен, не удалось отправить сигнальную задачу")
+				return
+			case <-time.After(wp.poolTimeout):
+				wp.log.Warn("Таймаут отправки сигнальной задачи: буфер полон")
+				return
+			}
 		}
 	}
 	wp.log.Info("Остановлены воркеры", zap.Int("num_workers", numWorkers))
@@ -104,6 +115,9 @@ func (wp *WorkerPool) Submit(task interfaces.Task) error {
 	case <-wp.ctx.Done():
 		wp.log.Error("Не удалось отправить задачу: пул остановлен")
 		return errors.ErrPoolStopped
+	case <-time.After(wp.poolTimeout):
+		wp.log.Warn("Таймаут отправки задачи: буфер полон")
+		return errors.ErrTimeout
 	}
 }
 
@@ -115,7 +129,19 @@ func (wp *WorkerPool) Shutdown() {
 	}
 	wp.log.Info("Инициирована остановка пула воркеров")
 	wp.cancel()
-	wp.workers.Wait()
+
+	done := make(chan struct{})
+	go func() {
+		wp.workers.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		wp.log.Info("Все воркеры завершены")
+	case <-time.After(wp.poolTimeout):
+		wp.log.Warn("Таймаут ожидания завершения воркеров")
+	}
+
 	close(wp.tasks)
 	wp.log.Info("Пул воркеров успешно остановлен")
 }

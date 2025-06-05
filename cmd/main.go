@@ -34,11 +34,14 @@ func main() {
 		}
 	}()
 
+	w := worker.NewDefaultWorker(cfg.Worker.TaskTimeout)
+
 	pool, err := workerpool.NewWorkerPool(
 		cfg.Worker.InitialWorkers,
 		cfg.Worker.TaskBufferSize,
-		worker.DefaultWorker{},
+		w,
 		log,
+		cfg.Worker.PoolTimeout,
 	)
 	if err != nil {
 		log.Error("Ошибка создания пула воркеров", zap.Error(err))
@@ -87,5 +90,6 @@ func main() {
 	time.Sleep(2 * time.Second)
 
 	// Выполняем graceful shutdown пула
+	pool.Shutdown()
 	pool.Shutdown()
 }
