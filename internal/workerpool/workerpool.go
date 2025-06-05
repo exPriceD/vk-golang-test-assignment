@@ -89,6 +89,10 @@ func (wp *WorkerPool) RemoveWorkers(numWorkers int) {
 
 // Submit добавляет новую задачу в пул.
 func (wp *WorkerPool) Submit(task interfaces.Task) error {
+	if task == nil {
+		wp.log.Error("Попытка отправить пустую задачу")
+		return errors.ErrNilTask
+	}
 	if atomic.LoadInt32(&wp.closed) == 1 {
 		wp.log.Error("Попытка отправить задачу в закрытый пул")
 		return errors.ErrPoolStopped

@@ -24,6 +24,7 @@ var (
 // Ошибки для WorkerPool
 var (
 	ErrPoolStopped = errors.New("пул воркеров остановлен")
+	ErrNilTask     = errors.New("задача не может быть nil")
 )
 
 // WrapInvalidLogLevel оборачивает ErrInvalidLogLevel с указанием уровня.
