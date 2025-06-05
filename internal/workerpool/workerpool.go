@@ -19,6 +19,7 @@ type WorkerPool struct {
 	workers     sync.WaitGroup       // WaitGroup для отслеживания активных воркеров
 	workerCount int32                // Счетчик активных воркеров
 	worker      Worker
+	closed      int32 //Флаг для отслеживания состояния пула (0 - открыт, 1 - закрыт)
 	ctx         context.Context
 	cancel      context.CancelFunc
 	log         interfaces.Logger
@@ -50,6 +51,10 @@ func (wp *WorkerPool) AddWorkers(numWorkers int) {
 		wp.log.Warn("Попытка добавить неположительное количество воркеров", zap.Int("num_workers", numWorkers))
 		return
 	}
+	if atomic.LoadInt32(&wp.closed) == 1 {
+		wp.log.Warn("Попытка добавить воркеров в закрытый пул")
+		return
+	}
 	for i := 0; i < numWorkers; i++ {
 		wp.workers.Add(1)
 		// Можно использовать sync.Mutex, но это менее эффективно, так как мьютексы требуют блокировки
@@ -68,6 +73,10 @@ func (wp *WorkerPool) RemoveWorkers(numWorkers int) {
 		wp.log.Warn("Попытка удалить неположительное количество воркеров", zap.Int("num_workers", numWorkers))
 		return
 	}
+	if atomic.LoadInt32(&wp.closed) == 1 {
+		wp.log.Warn("Попытка удалить воркеров из закрытого пула")
+		return
+	}
 	for i := 0; i < numWorkers; i++ {
 		if atomic.LoadInt32(&wp.workerCount) > 0 {
 			wp.tasks <- nil
@@ -80,6 +89,10 @@ func (wp *WorkerPool) RemoveWorkers(numWorkers int) {
 
 // Submit добавляет новую задачу в пул.
 func (wp *WorkerPool) Submit(task interfaces.Task) error {
+	if atomic.LoadInt32(&wp.closed) == 1 {
+		wp.log.Error("Попытка отправить задачу в закрытый пул")
+		return errors.ErrPoolStopped
+	}
 	select {
 	case wp.tasks <- task:
 		wp.log.Debug("Задача отправлена в пул")
@@ -92,6 +105,10 @@ func (wp *WorkerPool) Submit(task interfaces.Task) error {
 
 // Shutdown выполняет завершение всех воркеров и закрывает канал задач.
 func (wp *WorkerPool) Shutdown() {
+	if !atomic.CompareAndSwapInt32(&wp.closed, 0, 1) {
+		wp.log.Warn("Пул уже остановлен")
+		return
+	}
 	wp.log.Info("Инициирована остановка пула воркеров")
 	wp.cancel()
 	wp.workers.Wait()
