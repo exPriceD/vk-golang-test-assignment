@@ -8,14 +8,14 @@ import (
 )
 
 type DefaultWorker struct {
-	taskTimeout time.Duration
+	TaskTimeout time.Duration
 }
 
 // NewDefaultWorker создает новый DefaultWorker с заданными параметрами.
 // taskTimeout определяет максимальное время выполнения задачи Process.
 func NewDefaultWorker(taskTimeout time.Duration) *DefaultWorker {
 	return &DefaultWorker{
-		taskTimeout: taskTimeout,
+		TaskTimeout: taskTimeout,
 	}
 }
 
@@ -37,7 +37,7 @@ func (w DefaultWorker) Run(ctx context.Context, tasks <-chan interfaces.Task, id
 				return
 			}
 			log.Info("Воркер обрабатывает задачу", zap.Int32("worker_id", id))
-			taskCtx, cancel := context.WithTimeout(ctx, w.taskTimeout)
+			taskCtx, cancel := context.WithTimeout(ctx, w.TaskTimeout)
 			errChan := make(chan error, 1)
 			go func() {
 				errChan <- task.Process(taskCtx)
