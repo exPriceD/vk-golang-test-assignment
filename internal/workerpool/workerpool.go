@@ -18,15 +18,16 @@ type Worker interface {
 type WorkerPool struct {
 	tasks       chan interfaces.Task // Канал для задач
 	workers     sync.WaitGroup       // WaitGroup для отслеживания активных воркеров
-	workerCount int32                // Счетчик активных воркеров
+	workerCount int32                // Счетчик активных воркеров. Тип int32 выбран для совместимости с atomic
 	worker      Worker
-	closed      int32 //Флаг для отслеживания состояния пула (0 - открыт, 1 - закрыт)
+	closed      int32 //Флаг для отслеживания состояния пула (0 - открыт, 1 - закрыт). Тип int32 выбран для совместимости с atomic
 	ctx         context.Context
 	cancel      context.CancelFunc
 	log         interfaces.Logger
 	poolTimeout time.Duration
 }
 
+// NewWorkerPool Конструктор воркерпула. В дальнейшем при росте пула стоит использовать паттерн Functional Options для реализации гибкой и расширяемой конфигурации
 func NewWorkerPool(initialWorkers int, taskBufferSize int, worker Worker, log interfaces.Logger, poolTimeout time.Duration) (*WorkerPool, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	wp := &WorkerPool{
@@ -43,7 +44,9 @@ func NewWorkerPool(initialWorkers int, taskBufferSize int, worker Worker, log in
 		zap.Int("task_buffer_size", taskBufferSize),
 	)
 
-	wp.AddWorkers(initialWorkers)
+	if initialWorkers > 0 {
+		wp.AddWorkers(initialWorkers)
+	}
 
 	return wp, nil
 }
