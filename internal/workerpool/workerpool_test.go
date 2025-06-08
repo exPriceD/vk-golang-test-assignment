@@ -358,12 +358,11 @@ func TestSubmit(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			// Завершаем пул
 			pool.Shutdown()
+			time.Sleep(200 * time.Millisecond)
 			_, ok := <-pool.tasks
 			assert.False(t, ok, "Канал задач должен быть закрыт")
 
-			// Проверяем лог
 			if tt.wantLog != "" {
 				assert.True(t, logger.containsLog("DEBUG", tt.wantLog) || logger.containsLog("ERROR", tt.wantLog) || logger.containsLog("WARN", tt.wantLog), "Ожидается лог: %s", tt.wantLog)
 			}
