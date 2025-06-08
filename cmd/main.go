@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"go.uber.org/zap"
+	"sync"
 	"time"
 	"vk-worker-pool/internal/config"
 	"vk-worker-pool/internal/logger"
@@ -48,10 +49,14 @@ func main() {
 		return
 	}
 
+	var wg sync.WaitGroup
+
 	// Отправляем первые 5 задач
 	for i := 1; i <= 5; i++ {
+		wg.Add(1)
 		t := task.StringTask{Data: fmt.Sprintf("Задача %d", i)}
-		if err := pool.Submit(t); err != nil {
+		wrappedTask := task.WrapWithWaitGroup(t, &wg)
+		if err := pool.Submit(wrappedTask); err != nil {
 			if errors.Is(err, errors.ErrUnsupported) {
 				log.Error("Пул воркеров остановлен", zap.Error(err))
 				return
@@ -60,8 +65,7 @@ func main() {
 		}
 	}
 
-	// Даем время воркерам обработать задачи
-	time.Sleep(1 * time.Second)
+	wg.Wait()
 
 	// Добавляем 2 новых воркера
 	log.Info("Добавляем 2 воркера")
@@ -76,8 +80,10 @@ func main() {
 
 	// Отправляем еще 5 задач
 	for i := 6; i <= 10; i++ {
+		wg.Add(1)
 		t := task.StringTask{Data: fmt.Sprintf("Задача %d", i)}
-		if err := pool.Submit(t); err != nil {
+		wrappedTask := task.WrapWithWaitGroup(t, &wg)
+		if err := pool.Submit(wrappedTask); err != nil {
 			if errors.Is(err, errors.ErrUnsupported) {
 				log.Error("Пул воркеров остановлен", zap.Error(err))
 				return
@@ -86,10 +92,9 @@ func main() {
 		}
 	}
 
-	// Даем время для обработки всех задач
-	time.Sleep(2 * time.Second)
+	wg.Wait()
 
 	// Выполняем graceful shutdown пула
 	pool.Shutdown()
-	pool.Shutdown()
+	pool.Shutdown() // Не отработает, получим WARN, а не панику
 }
