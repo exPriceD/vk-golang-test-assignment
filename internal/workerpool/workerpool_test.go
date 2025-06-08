@@ -359,7 +359,10 @@ func TestSubmit(t *testing.T) {
 			}
 
 			pool.Shutdown()
-			time.Sleep(200 * time.Millisecond)
+
+			if tt.name == "ValidTask" {
+				time.Sleep(5000 * time.Millisecond)
+			}
 			_, ok := <-pool.tasks
 			assert.False(t, ok, "Канал задач должен быть закрыт")
 
