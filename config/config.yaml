@@ -2,7 +2,7 @@ worker:
   initial_workers: 5
   task_buffer_size: 10
   task_timeout: 5s
-  pool_timeout: -5s
+  pool_timeout: 5s
 
 logger:
   logging_level: "INFO"
